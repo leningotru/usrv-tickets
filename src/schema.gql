@@ -31,9 +31,9 @@ input CreateTicketInput {
 
 input UpdateTicketInput {
   id: String!
-  title: String!
-  description: String!
-  priority: String!
-  category: String!
-  status: String!
+  title: String
+  description: String
+  priority: String
+  category: String
+  status: String
 }
