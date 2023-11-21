@@ -15,3 +15,13 @@ export enum PriorityEnum {
     ERROR = "error",
   }
   
+  export const CategoryMapping = {
+    [CategoryEnum.INCIDENT]: 1,
+    [CategoryEnum.SUPPORT]: 2,
+    [CategoryEnum.ERROR]: 3,
+  };
+
+  export interface dataMock {
+    id: number;
+    code: number;
+  }

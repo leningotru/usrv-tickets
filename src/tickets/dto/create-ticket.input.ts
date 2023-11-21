@@ -6,7 +6,7 @@ import { CategoryEnum, PriorityEnum, StatusEnum } from '../infraestructure/Valid
 export class CreateTicketInput {
     @IsString()
     @Field()
-    @Length(2, 30, { message: "Title Must Be At Least 2 characters" })
+    @Length(2, 60, { message: "Title Must Be At Least 2 characters" })
     title: string;
 
     @IsString()
