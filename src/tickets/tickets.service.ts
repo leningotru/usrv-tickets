@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
 import { CreateTicketInput } from './dto/create-ticket.input';
+import { SearchTicketInput } from './dto/search-ticket.input';
 import { UpdateTicketInput } from './dto/update-ticket.input';
 import { Ticket } from './entities/ticket.entity';
 
@@ -54,6 +55,32 @@ export class TicketsService {
     } catch (error) {
       // TODO: return errors validation
       return error
+    }
+  }
+
+  findMany(searchTicketInput: SearchTicketInput) {
+    try {
+      const queryBuilder: SelectQueryBuilder<Ticket> = this.ticketRepository.createQueryBuilder('ticket');
+      if (searchTicketInput.priority) {
+        const priorityValues: string[] = searchTicketInput.priority.split('|').map(value => value.trim());
+        queryBuilder.andWhere('ticket.priority IN (:...priorityValues)', { priorityValues });
+      }
+
+      if (searchTicketInput.category){
+        const categoriesValues: string[] = searchTicketInput.category.split('|').map(value => value.trim());
+        queryBuilder.andWhere('ticket.category IN (:...categoriesValues)', { categoriesValues });
+      }
+        
+      if (searchTicketInput.status) {
+        const statusValues: string[] = searchTicketInput.status.split('|').map(value => value.trim());
+        queryBuilder.andWhere('ticket.status IN (:...statusValues)', { statusValues });
+      }
+
+      queryBuilder.skip(searchTicketInput.skip).take(searchTicketInput.limit);
+      return queryBuilder.getMany();
+    } catch (error) {
+      // TODO: return errors validation
+      console.log(error)
     }
   }
 }

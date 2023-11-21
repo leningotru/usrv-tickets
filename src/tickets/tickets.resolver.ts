@@ -3,6 +3,7 @@ import { TicketsService } from './tickets.service';
 import { Ticket } from './entities/ticket.entity';
 import { CreateTicketInput } from './dto/create-ticket.input';
 import { UpdateTicketInput } from './dto/update-ticket.input';
+import { SearchTicketInput } from './dto/search-ticket.input';
 
 
 @Resolver(() => Ticket)
@@ -27,5 +28,10 @@ export class TicketsResolver {
   @Mutation(() => String)
   updateTicket(@Args('updateTicketInput') updateTicketInput: UpdateTicketInput) {
     return this.ticketsService.update(updateTicketInput.id, updateTicketInput);
+  }
+
+  @Query(() => [Ticket], { name: 'searchTickets' })
+  findMany(@Args('searchTicketInput') searchTicketInput: SearchTicketInput) {
+    return this.ticketsService.findMany(searchTicketInput);
   }
 }
