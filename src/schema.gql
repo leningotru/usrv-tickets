@@ -3,11 +3,22 @@
 # ------------------------------------------------------
 
 type Ticket {
+  """Ticket Identificator"""
   id: String!
+
+  """Ticket Title"""
   title: String!
+
+  """Ticket Description"""
   description: String!
+
+  """Ticket Pryority: high|medium|low"""
   priority: String!
+
+  """Tickect Category: incident|support|error"""
   category: String!
+
+  """Tickect Status: pending|verified|approved|rejected"""
   status: String!
 }
 

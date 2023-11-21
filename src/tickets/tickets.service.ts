@@ -1,64 +1,68 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, SelectQueryBuilder } from 'typeorm';
+import { Repository, SelectQueryBuilder, UpdateResult } from 'typeorm';
 import { CreateTicketInput } from './dto/create-ticket.input';
-import { SearchTicketInput } from './dto/search-ticket.input';
 import { UpdateTicketInput } from './dto/update-ticket.input';
 import { Ticket } from './entities/ticket.entity';
+import { SearchTicketInput } from './dto/search-ticket.input';
 
 @Injectable()
 export class TicketsService {
 
   constructor(
     @InjectRepository(Ticket)
-    private readonly ticketRepository: Repository<Ticket>
+    private readonly ticketRepository: Repository<Ticket>,
   ) { }
 
-  create(createTicketInput: CreateTicketInput) {
+  async create(createTicketInput: CreateTicketInput): Promise<Ticket> {
     try {
-      return this.ticketRepository.save(createTicketInput);
+      return await this.ticketRepository.save(createTicketInput);
     } catch (error) {
-      // TODO: return errors validation
-      console.log(error)
+      if (error.code === '23505') {
+        throw new BadRequestException('Ticket with the provided data already exists.');
+      }
+      throw new BadRequestException('Failed to create a ticket.');
     }
   }
 
-  findAll() {
+  async findAll(): Promise<Ticket[]> {
     try {
-      return this.ticketRepository.find();
+      return await this.ticketRepository.find();
     } catch (error) {
-      // TODO: return errors validation
-      console.log(error)
+      throw new BadRequestException('Failed to fetch tickets.');
     }
   }
 
-  findOne(id: string) {
+  async findOne(id: string): Promise<Ticket> {
     try {
-      return this.ticketRepository.findOneBy({ id });
+      const ticket = await this.ticketRepository.findOneBy({ id });
+      if (!ticket) {
+        throw new NotFoundException(`Ticket with id ${id} not found.`);
+      }
+      return ticket;
     } catch (error) {
-      // TODO: return errors validation
-      console.log(`This action returns a #${id} ticket`, error)
+      throw new BadRequestException(`Failed to fetch ticket with id ${id}.`);
     }
   }
 
   async update(id: string, updateTicketInput: UpdateTicketInput): Promise<string> {
     try {
-      const updateResult = await this.ticketRepository.update(id, updateTicketInput);
-      console.log(updateResult);
+      const updateResult: UpdateResult = await this.ticketRepository.update(id, updateTicketInput);
 
-      if ((updateResult).affected > 0) {
-        return "Actualizacion OK";
+      if (updateResult.affected > 0) {
+        return 'Update successful';
       } else {
-        throw new Error("La actualización falló");
+        throw new NotFoundException(`Ticket with id ${id} not found.`);
       }
-
     } catch (error) {
-      // TODO: return errors validation
-      return error
+      if (error.code === '23505') {
+        throw new BadRequestException('Ticket with the provided data already exists.');
+      }
+      throw new BadRequestException(`Failed to update ticket with id ${id}.`);
     }
   }
 
-  findMany(searchTicketInput: SearchTicketInput) {
+  async findMany(searchTicketInput: SearchTicketInput) {
     try {
       const queryBuilder: SelectQueryBuilder<Ticket> = this.ticketRepository.createQueryBuilder('ticket');
       if (searchTicketInput.priority) {
@@ -79,8 +83,7 @@ export class TicketsService {
       queryBuilder.skip(searchTicketInput.skip).take(searchTicketInput.limit);
       return queryBuilder.getMany();
     } catch (error) {
-      // TODO: return errors validation
-      console.log(error)
+      throw new BadRequestException('Failed to search tickets.');
     }
   }
 }

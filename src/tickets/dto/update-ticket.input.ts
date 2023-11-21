@@ -1,7 +1,8 @@
 
 import { InputType, Field } from '@nestjs/graphql';
-import { IsOptional } from 'class-validator';
+import { IsEnum, IsOptional } from 'class-validator';
 import { IsString, Length } from "class-validator";
+import { PriorityEnum, CategoryEnum, StatusEnum } from '../infraestructure/ValidationEnum';
 
 @InputType()
 export class UpdateTicketInput {
@@ -26,17 +27,20 @@ export class UpdateTicketInput {
   @Field()
   @IsString()
   @IsOptional()
+  @IsEnum(PriorityEnum, { message: 'Invalid priority value' })
   priority?: string;
 
   @Field({nullable:true})
   @Field()
   @IsString()
   @IsOptional()
+  @IsEnum(CategoryEnum, { message: 'Invalid category value' })
   category?: string;
 
   @Field({nullable:true})
   @Field()
   @IsString()
   @IsOptional()
+  @IsEnum(StatusEnum, { message: 'Invalid status value' })
   status?: string;
 }
