@@ -5,13 +5,14 @@ import { CreateTicketInput } from './dto/create-ticket.input';
 import { UpdateTicketInput } from './dto/update-ticket.input';
 import { SearchTicketInput } from './dto/search-ticket.input';
 
-
 @Resolver(() => Ticket)
 export class TicketsResolver {
   constructor(private readonly ticketsService: TicketsService) {}
 
   @Mutation(() => Ticket)
-  createTicket(@Args('createTicketInput') createTicketInput: CreateTicketInput) {
+  createTicket(
+    @Args('createTicketInput') createTicketInput: CreateTicketInput,
+  ) {
     return this.ticketsService.create(createTicketInput);
   }
 
@@ -26,7 +27,9 @@ export class TicketsResolver {
   }
 
   @Mutation(() => String)
-  updateTicket(@Args('updateTicketInput') updateTicketInput: UpdateTicketInput) {
+  updateTicket(
+    @Args('updateTicketInput') updateTicketInput: UpdateTicketInput,
+  ) {
     return this.ticketsService.update(updateTicketInput.id, updateTicketInput);
   }
 

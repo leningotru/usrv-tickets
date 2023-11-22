@@ -1,4 +1,4 @@
 export interface dataMock {
-    id: number;
-    code: number;
-  }
+  id: number;
+  code: number;
+}

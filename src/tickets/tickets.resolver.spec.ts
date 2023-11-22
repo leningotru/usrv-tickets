@@ -6,20 +6,33 @@ import { UpdateTicketInput } from './dto/update-ticket.input';
 import { Ticket } from './entities/ticket.entity';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { PriorityEnum, CategoryEnum, StatusEnum } from './infraestructure/ValidationEnum';
+import {
+  CategoryEnum,
+  PriorityEnum,
+  StatusEnum,
+} from './infraestructure/ValidationEnum';
 
 describe('TicketsResolver', () => {
   let resolver: TicketsResolver;
   let service: TicketsService;
-  let repository: Repository<Ticket>;
+  const mockClientKafka = {
+    emit: jest.fn(),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [TicketsResolver, TicketsService,
+      providers: [
+        TicketsResolver,
+        TicketsService,
         {
           provide: getRepositoryToken(Ticket),
-          useClass: Repository < Ticket >,
-        }],
+          useClass: Repository<Ticket>,
+        },
+        {
+          provide: 'TICKET-SERVICE',
+          useValue: mockClientKafka,
+        },
+      ],
     }).compile();
 
     resolver = module.get<TicketsResolver>(TicketsResolver);
@@ -32,9 +45,22 @@ describe('TicketsResolver', () => {
 
   describe('createTicket', () => {
     it('should create a ticket', async () => {
-      const createTicketInput: CreateTicketInput = { title: 'Test', description: 'Test', priority: PriorityEnum.HIGH, category: CategoryEnum.ERROR, status: StatusEnum.PENDING };
+      const createTicketInput: CreateTicketInput = {
+        title: 'Test',
+        description: 'Test',
+        priority: PriorityEnum.HIGH,
+        category: CategoryEnum.ERROR,
+        status: StatusEnum.PENDING,
+      };
 
-      const createdTicket: Ticket = { id: '900b4808-87f6-11ee-b9d1-0242ac120002', title: 'Test', description: 'Test', priority: PriorityEnum.HIGH, category: CategoryEnum.ERROR, status: StatusEnum.PENDING };
+      const createdTicket: Ticket = {
+        id: '900b4808-87f6-11ee-b9d1-0242ac120002',
+        title: 'Test',
+        description: 'Test',
+        priority: PriorityEnum.HIGH,
+        category: CategoryEnum.ERROR,
+        status: StatusEnum.PENDING,
+      };
 
       jest.spyOn(service, 'create').mockResolvedValue(createdTicket);
 
@@ -48,9 +74,30 @@ describe('TicketsResolver', () => {
   describe('findAll', () => {
     it('should return an array of tickets', async () => {
       const tickets: Ticket[] = [
-        { id: '900b4808-87f6-11ee-b9d1-0242ac120002', title: 'Test', description: 'Test', priority: 'high', category: 'error', status: 'pending' },
-        { id: '962ec9b2-87f6-11ee-b9d1-0242ac120002', title: 'Test 2', description: 'Test 2', priority: 'medium', category: 'error', status: 'verified' },
-        { id: '9a3e7ef8-87f6-11ee-b9d1-0242ac120002', title: 'Test 3', description: 'Test 3', priority: 'low', category: 'error', status: 'rejected' }
+        {
+          id: '900b4808-87f6-11ee-b9d1-0242ac120002',
+          title: 'Test',
+          description: 'Test',
+          priority: PriorityEnum.HIGH,
+          category: CategoryEnum.ERROR,
+          status: StatusEnum.PENDING,
+        },
+        {
+          id: '962ec9b2-87f6-11ee-b9d1-0242ac120002',
+          title: 'Test 2',
+          description: 'Test 2',
+          priority: PriorityEnum.MEDIUM,
+          category: CategoryEnum.ERROR,
+          status: StatusEnum.VERIFIED,
+        },
+        {
+          id: '9a3e7ef8-87f6-11ee-b9d1-0242ac120002',
+          title: 'Test 3',
+          description: 'Test 3',
+          priority: PriorityEnum.LOW,
+          category: CategoryEnum.ERROR,
+          status: StatusEnum.REJECTED,
+        },
       ];
 
       jest.spyOn(service, 'findAll').mockResolvedValue(tickets);
@@ -67,7 +114,12 @@ describe('TicketsResolver', () => {
       const ticketId = '900b4808-87f6-11ee-b9d1-0242ac120002';
 
       const foundTicket: Ticket = {
-        id: '900b4808-87f6-11ee-b9d1-0242ac120002', title: 'Test', description: 'Test', priority: 'high', category: 'error', status: 'pending'
+        id: '900b4808-87f6-11ee-b9d1-0242ac120002',
+        title: 'Test',
+        description: 'Test',
+        priority: PriorityEnum.HIGH,
+        category: CategoryEnum.ERROR,
+        status: StatusEnum.PENDING,
       };
 
       jest.spyOn(service, 'findOne').mockResolvedValue(foundTicket);
@@ -82,16 +134,23 @@ describe('TicketsResolver', () => {
   describe('updateTicket', () => {
     it('should update a ticket', async () => {
       const updateTicketInput: UpdateTicketInput = {
-        id: '900b4808-87f6-11ee-b9d1-0242ac120002', title: 'Test', description: 'Test', priority: 'high', category: 'error', status: 'pending'
+        id: '900b4808-87f6-11ee-b9d1-0242ac120002',
+        title: 'Test',
+        description: 'Test',
+        priority: PriorityEnum.HIGH,
+        category: CategoryEnum.ERROR,
+        status: StatusEnum.PENDING,
       };
 
       jest.spyOn(service, 'update').mockResolvedValue('Update successful');
 
       const result = await resolver.updateTicket(updateTicketInput);
 
-      expect(service.update).toHaveBeenCalledWith(updateTicketInput.id, updateTicketInput);
+      expect(service.update).toHaveBeenCalledWith(
+        updateTicketInput.id,
+        updateTicketInput,
+      );
       expect(result).toEqual('Update successful');
     });
   });
-
 });

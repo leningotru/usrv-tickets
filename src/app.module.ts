@@ -23,10 +23,13 @@ import { TicketsModule } from './tickets/tickets.module';
       autoLoadEntities: true,
     }),
     GraphQLModule.forRoot<ApolloDriverConfig>({
-    driver: ApolloDriver,
-    autoSchemaFile: join(process.cwd(), "src/schema.gql")
-  }), TicketsModule, KafkaModule],
+      driver: ApolloDriver,
+      autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
+    }),
+    TicketsModule,
+    KafkaModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}

@@ -6,7 +6,7 @@ import { Ticket } from './entities/ticket.entity';
 import { KafkaModule } from 'src/kafka/kafka.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Ticket]),KafkaModule],
+  imports: [TypeOrmModule.forFeature([Ticket]), KafkaModule],
   providers: [TicketsResolver, TicketsService],
 })
 export class TicketsModule {}

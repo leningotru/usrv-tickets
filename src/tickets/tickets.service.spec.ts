@@ -1,14 +1,25 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository, SelectQueryBuilder, UpdateResult } from 'typeorm';
 import { TicketsService } from './tickets.service';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Repository, UpdateResult } from 'typeorm';
 import { Ticket } from './entities/ticket.entity';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { CreateTicketInput } from './dto/create-ticket.input';
+import {
+  CategoryEnum,
+  PriorityEnum,
+  StatusEnum,
+} from './infraestructure/ValidationEnum';
 import { UpdateTicketInput } from './dto/update-ticket.input';
+
 
 describe('TicketsService', () => {
   let service: TicketsService;
-  let repository: Repository<Ticket>;
+  let ticketRepository: Repository<Ticket>;
+
+  const mockClientKafka = {
+    emit: jest.fn(),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -16,166 +27,266 @@ describe('TicketsService', () => {
         TicketsService,
         {
           provide: getRepositoryToken(Ticket),
-          useClass: Repository<Ticket>,
+          useClass: Repository,
+        },
+        {
+          provide: 'TICKET-SERVICE', // Make sure this token is correctly provided
+          useValue: mockClientKafka, // Mock or provide the actual ClientKafka instance
         },
       ],
     }).compile();
 
     service = module.get<TicketsService>(TicketsService);
-    repository = module.get<Repository<Ticket>>(getRepositoryToken(Ticket));
+    ticketRepository = module.get<Repository<Ticket>>(
+      getRepositoryToken(Ticket),
+    );
   });
 
-  it('should be defined', () => {
-    expect(service).toBeDefined();
-  });
-
-/*
   describe('create', () => {
-    it('should create a ticket', async () => {
-      const createTicketInput: CreateTicketInput = {title: 'Test',description:'Test',priority:'high',category:'error' ,status:'J' };
-  
-      const createdTicket: Ticket = {...createTicketInput, id:'900b4808-87f6-11ee-b9d1-0242ac120002', status: StatusEnum.PENDING };
-      
-      const mockApiSpy = jest.spyOn( 'axios').mockResolvedValue(mockStatus);
-  
+    it('should create a ticket successfully', async () => {
+      const createTicketInput: CreateTicketInput = {
+        title: 'Test',
+        description: 'Test',
+        priority: PriorityEnum.HIGH,
+        category: CategoryEnum.ERROR,
+        status: StatusEnum.PENDING,
+      };
 
-      jest.spyOn(repository, 'save').mockResolvedValue(createdTicket);
+      const createdTicket: Ticket = {
+        id: '900b4808-87f6-11ee-b9d1-0242ac120002',
+        title: 'Test',
+        description: 'Test',
+        priority: PriorityEnum.HIGH,
+        category: CategoryEnum.ERROR,
+        status: StatusEnum.PENDING,
+      };
+
+      jest.spyOn(ticketRepository, 'save').mockResolvedValueOnce(createdTicket);
+      jest
+        .spyOn(service['ticketClientKafka'], 'emit')
+        .mockImplementationOnce(() => null);
 
       const result = await service.create(createTicketInput);
 
-      expect(repository.save).toHaveBeenCalledWith(createTicketInput);
+      expect(ticketRepository.save).toHaveBeenCalledWith(createTicketInput);
+      expect(service['ticketClientKafka'].emit).toHaveBeenCalledWith(
+        'ticket_created',
+        expect.any(String),
+      );
       expect(result).toEqual(createdTicket);
     });
-  });
-  
 
-
-
-
-
-
-
-  describe('create 2', () => {
-    it('should create a ticket with PENDING status', async () => {
-      const createTicketInput: CreateTicketInput = {title: 'Test',description:'Test',priority:'high',category:'error' ,status:'pending' };
-
-      const categoryValue = CategoryMapping[createTicketInput.category as CategoryEnum];
-      const mockStatus:dataMock = { id: categoryValue, code:400  };
-      //const mockCall=(mockApi as jest.Mock).mockResolvedValue(mockStatus);
-
-      await service.create(createTicketInput);
-
-      expect(repository.save).toHaveBeenCalledWith(expect.objectContaining({
-        ...createTicketInput,
+    it('should throw BadRequestException when creating a ticket', async () => {
+      const createTicketInput: CreateTicketInput = {
+        title: 'Test',
+        description: 'Test',
+        priority: PriorityEnum.HIGH,
+        category: CategoryEnum.ERROR,
         status: StatusEnum.PENDING,
-        // Ensure other properties match your expectations...
-      }));
-      //expect(mockCall).toHaveBeenCalledWith(mockStatus)
-    });
-
-   
-    it('should call mockApi with the correct category value', async () => {
-      const createTicketInput: CreateTicketInput = {
-        // Define your input data here...
       };
 
-      const categoryValue = CategoryMapping[createTicketInput.category as CategoryEnum];
-      const mockStatus = { id: 1, name: 'Active' };
-      (mockApi as jest.Mock).mockResolvedValue(mockStatus);
-
-      await service.create(createTicketInput);
-
-      expect(mockApi).toHaveBeenCalledWith(categoryValue);
-    });
-
-    it('should handle errors and throw BadRequestException', async () => {
-      const createTicketInput: CreateTicketInput = {
-        // Define your input data here...
-      };
-
-      const categoryValue = CategoryMapping[createTicketInput.category as CategoryEnum];
-      (mockApi as jest.Mock).mockRejectedValue(new Error('Some error'));
+      jest.spyOn(ticketRepository, 'save').mockResolvedValueOnce({} as Ticket);
+      jest
+        .spyOn(service['ticketClientKafka'], 'emit')
+        .mockImplementationOnce(() => null);
 
       await expect(service.create(createTicketInput)).rejects.toThrowError(
-        'Failed to create a ticket.'
+        BadRequestException,
       );
     });
-  });*/
 
+    it('should throw BadRequestException when failed to create a ticket', async () => {
+      const createTicketInput: CreateTicketInput = {
+        title: 'Test',
+        description: 'Test',
+        priority: PriorityEnum.HIGH,
+        category: CategoryEnum.ERROR,
+        status: StatusEnum.PENDING,
+      };
 
+      jest
+        .spyOn(ticketRepository, 'save')
+        .mockRejectedValueOnce(new Error('Test error'));
 
+      await expect(service.create(createTicketInput)).rejects.toThrowError(
+        BadRequestException,
+      );
+    });
+  });
 
   describe('findAll', () => {
-    it('should return an array of tickets', async () => {
+    it('should fetch all tickets successfully', async () => {
       const tickets: Ticket[] = [
-        {id:'900b4808-87f6-11ee-b9d1-0242ac120002',title: 'Test',description:'Test',priority:'high',category:'error' ,status:'pending' },
-        {id:'962ec9b2-87f6-11ee-b9d1-0242ac120002',title: 'Test 2',description:'Test 2',priority:'medium',category:'error' ,status:'verified' },
-        {id:'9a3e7ef8-87f6-11ee-b9d1-0242ac120002',title: 'Test 3',description:'Test 3',priority:'low',category:'error' ,status:'rejected' }
+        {
+          id: '900b4808-87f6-11ee-b9d1-0242ac120002',
+          title: 'Test',
+          description: 'Test',
+          priority: PriorityEnum.HIGH,
+          category: CategoryEnum.ERROR,
+          status: StatusEnum.PENDING,
+        },
+        {
+          id: '962ec9b2-87f6-11ee-b9d1-0242ac120002',
+          title: 'Test 2',
+          description: 'Test 2',
+          priority: PriorityEnum.MEDIUM,
+          category: CategoryEnum.ERROR,
+          status: StatusEnum.VERIFIED,
+        },
+        {
+          id: '9a3e7ef8-87f6-11ee-b9d1-0242ac120002',
+          title: 'Test 3',
+          description: 'Test 3',
+          priority: PriorityEnum.LOW,
+          category: CategoryEnum.ERROR,
+          status: StatusEnum.REJECTED,
+        },
       ];
 
-      jest.spyOn(repository, 'find').mockResolvedValue(tickets);
+      jest.spyOn(ticketRepository, 'find').mockResolvedValueOnce(tickets);
 
       const result = await service.findAll();
 
-      expect(repository.find).toHaveBeenCalled();
+      expect(ticketRepository.find).toHaveBeenCalled();
       expect(result).toEqual(tickets);
+    });
+
+    it('should throw BadRequestException when failed to fetch tickets', async () => {
+      jest
+        .spyOn(ticketRepository, 'find')
+        .mockRejectedValueOnce(new Error('Test error'));
+
+      await expect(service.findAll()).rejects.toThrowError(BadRequestException);
     });
   });
 
   describe('findOne', () => {
-    it('should return a single ticket', async () => {
+    it('should fetch a ticket by id successfully', async () => {
       const ticketId = '900b4808-87f6-11ee-b9d1-0242ac120002';
-  
-      const foundTicket: Ticket = {
-        id:'900b4808-87f6-11ee-b9d1-0242ac120002',title: 'Test',description:'Test',priority:'high',category:'error' ,status:'pending'
-      };
 
-      jest.spyOn(repository, 'findOneBy').mockResolvedValue(foundTicket);
+      const foundTicket: Ticket = {
+        id: '900b4808-87f6-11ee-b9d1-0242ac120002',
+        title: 'Test',
+        description: 'Test',
+        priority: PriorityEnum.HIGH,
+        category: CategoryEnum.ERROR,
+        status: StatusEnum.PENDING,
+      };
+      jest
+        .spyOn(ticketRepository, 'findOneBy')
+        .mockResolvedValueOnce(foundTicket);
 
       const result = await service.findOne(ticketId);
 
-      expect(repository.findOneBy).toHaveBeenCalledWith({ id: ticketId });
-      expect(result).toMatchObject(foundTicket);
+      expect(ticketRepository.findOneBy).toHaveBeenCalledWith({ id: ticketId });
+      expect(result).toEqual(foundTicket);
+    });
+
+    it('should throw NotFoundException when the ticket with the provided id is not found', async () => {
+      const ticketId = 'non-existing-id';
+      jest
+        .spyOn(ticketRepository, 'findOneBy')
+        .mockResolvedValueOnce(undefined);
+
+      await expect(service.findOne(ticketId)).rejects.toThrowError(
+        NotFoundException,
+      );
+    });
+
+    it('should throw BadRequestException when failed to fetch a ticket by id', async () => {
+      const ticketId = 'test-id';
+      jest
+        .spyOn(ticketRepository, 'findOneBy')
+        .mockRejectedValueOnce(new Error('Test error'));
+
+      await expect(service.findOne(ticketId)).rejects.toThrowError(
+        BadRequestException,
+      );
     });
   });
 
   describe('update', () => {
-    it('should update a ticket', async () => {
-      const ticketId = 'some-id';
+    it('should update a ticket successfully', async () => {
+      const ticketId = '900b4808-87f6-11ee-b9d1-0242ac120002';
       const updateTicketInput: UpdateTicketInput = {
-        id:'900b4808-87f6-11ee-b9d1-0242ac120002',title: 'Test',description:'Test',priority:'high',category:'error' ,status:'pending'
+        id: '900b4808-87f6-11ee-b9d1-0242ac120002',
+        title: 'Test',
+        description: 'Test',
+        priority: PriorityEnum.HIGH,
+        category: CategoryEnum.ERROR,
+        status: StatusEnum.PENDING,
       };
+      const mockUpdateResult = { affected: 1 } as UpdateResult;
+      jest
+        .spyOn(ticketRepository, 'update')
+        .mockResolvedValueOnce(mockUpdateResult);
 
-      const mockUpdateResult: UpdateResult = {
-        raw: {}, 
-        affected: 1,
-        generatedMaps: [], 
-      };
-  
-      jest.spyOn(repository, 'update').mockResolvedValue(mockUpdateResult);
-  
       const result = await service.update(ticketId, updateTicketInput);
-  
-      expect(repository.update).toHaveBeenCalledWith(ticketId, updateTicketInput);
+
+      expect(ticketRepository.update).toHaveBeenCalledWith(
+        ticketId,
+        updateTicketInput,
+      );
       expect(result).toEqual('Update successful');
     });
 
-    it('should handle update failure', async () => {
+    it('should throw NotFoundException when the ticket with the provided id is not found during update', async () => {
       const ticketId = 'non-existing-id';
       const updateTicketInput: UpdateTicketInput = {
-        id:'900b4808-87f6-11ee-b9d1-0242ac120002',title: 'Test',description:'Test',priority:'high',category:'error' ,status:'pending'
+        id: '900b4808-87f6-11ee-b9d1-0242ac120002',
+        title: 'Test',
+        description: 'Test',
+        priority: PriorityEnum.HIGH,
+        category: CategoryEnum.ERROR,
+        status: StatusEnum.PENDING,
       };
-  
-      const mockUpdateResult: UpdateResult = {
-        raw: {},
-        affected: 0,
-        generatedMaps: [],
+      const mockUpdateResult = { affected: 0 } as UpdateResult;
+      jest
+        .spyOn(ticketRepository, 'update')
+        .mockResolvedValueOnce(mockUpdateResult);
+
+      await expect(
+        service.update(ticketId, updateTicketInput),
+      ).rejects.toThrowError(NotFoundException);
+    });
+
+    it('should throw BadRequestException when failed to update a ticket', async () => {
+      const ticketId = '900b4808-87f6-11ee-b9d1-0242ac120002';
+      const updateTicketInput: UpdateTicketInput = {
+        id: '900b4808-87f6-11ee-b9d1-0242ac120002',
+        title: 'Test',
+        description: 'Test',
+        priority: PriorityEnum.HIGH,
+        category: CategoryEnum.ERROR,
+        status: StatusEnum.PENDING,
       };
-  
-      jest.spyOn(repository, 'update').mockResolvedValue(mockUpdateResult);
-  
-      await expect(service.update(ticketId, updateTicketInput)).rejects.toThrowError('Failed to update ticket with id non-existing-id.');
+      jest
+        .spyOn(ticketRepository, 'update')
+        .mockRejectedValueOnce(new Error('Test error'));
+
+      await expect(
+        service.update(ticketId, updateTicketInput),
+      ).rejects.toThrowError(BadRequestException);
+    });
+
+    it('should throw BadRequestException when a duplicate entry violation occurs during update', async () => {
+      const ticketId = '900b4808-87f6-11ee-b9d1-0242ac120002';
+      const updateTicketInput: UpdateTicketInput = {
+        id: '900b4808-87f6-11ee-b9d1-0242ac120002',
+        title: 'Test',
+        description: 'Test',
+        priority: PriorityEnum.HIGH,
+        category: CategoryEnum.ERROR,
+        status: StatusEnum.PENDING,
+      };
+      const duplicateEntryError = { code: '23505' };
+      jest
+        .spyOn(ticketRepository, 'update')
+        .mockRejectedValueOnce(duplicateEntryError);
+
+      await expect(
+        service.update(ticketId, updateTicketInput),
+      ).rejects.toThrowError(BadRequestException);
     });
   });
-
 });
