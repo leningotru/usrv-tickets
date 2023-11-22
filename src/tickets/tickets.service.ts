@@ -17,7 +17,7 @@ export class TicketsService {
   constructor(
     @InjectRepository(Ticket)
     private readonly ticketRepository: Repository<Ticket>,
-    @Inject('TICKET-SERVICE') 
+    @Inject('TICKET-SERVICE')
     private readonly ticketClientKafka: ClientKafka,
   ) { }
 
@@ -28,12 +28,15 @@ export class TicketsService {
       const resultMockApi: dataMock = await mockApi(categoryValue);
 
       set(createTicketInput, "status", StatusEnum.PENDING);
-      const newTicket= await this.ticketRepository.save(createTicketInput);
+      const newTicket = await this.ticketRepository.save(createTicketInput);
 
       this.ticketClientKafka.emit(
         'ticket_created',
         JSON.stringify({ id: get(createTicketInput, "id"), state: resultMockApi }),
       );
+      if (categoryValue === 3)
+        throw new BadRequestException('Error creating the ticket with category');
+        
       return newTicket;
     } catch (error) {
       throw new BadRequestException('Failed to create a ticket.', error);
@@ -71,7 +74,7 @@ export class TicketsService {
       }
     } catch (error) {
       if (error.code === '23505') {
-        throw new BadRequestException('Ticket with the provided data already exists.');
+        throw new BadRequestException(`Ticket with the provided data already exists.${error}.`);
       }
       throw new BadRequestException(`Failed to update ticket with id ${id}.`);
     }
