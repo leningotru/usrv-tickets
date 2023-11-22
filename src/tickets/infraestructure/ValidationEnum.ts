@@ -20,8 +20,3 @@ export enum PriorityEnum {
     [CategoryEnum.SUPPORT]: 2,
     [CategoryEnum.ERROR]: 3,
   };
-
-  export interface dataMock {
-    id: number;
-    code: number;
-  }

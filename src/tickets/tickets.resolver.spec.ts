@@ -41,7 +41,6 @@ describe('TicketsResolver', () => {
       const result = await resolver.createTicket(createTicketInput);
 
       expect(service.create).toHaveBeenCalledWith(createTicketInput);
-      //expect(service.create).toHaveBeenCalledTimes(1);
       expect(result).toMatchObject(createdTicket);
     });
   });

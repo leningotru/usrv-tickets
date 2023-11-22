@@ -1,13 +1,15 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder, UpdateResult } from 'typeorm';
 import { CreateTicketInput } from './dto/create-ticket.input';
 import { UpdateTicketInput } from './dto/update-ticket.input';
 import { Ticket } from './entities/ticket.entity';
 import { SearchTicketInput } from './dto/search-ticket.input';
-import { CategoryEnum, CategoryMapping, dataMock, StatusEnum } from './infraestructure/ValidationEnum';
-import { set } from "lodash";
+import { CategoryEnum, CategoryMapping, StatusEnum } from './infraestructure/ValidationEnum';
+import { get, set } from "lodash";
 import { mockApi } from './Utils/api-utils';
+import { ClientKafka } from '@nestjs/microservices';
+import { dataMock } from './infraestructure/interface';
 
 @Injectable()
 export class TicketsService {
@@ -15,6 +17,8 @@ export class TicketsService {
   constructor(
     @InjectRepository(Ticket)
     private readonly ticketRepository: Repository<Ticket>,
+    @Inject('TICKET-SERVICE') 
+    private readonly ticketClientKafka: ClientKafka,
   ) { }
 
   async create(createTicketInput: CreateTicketInput): Promise<Ticket> {
@@ -22,10 +26,15 @@ export class TicketsService {
       const category: CategoryEnum = createTicketInput.category as CategoryEnum;
       const categoryValue: number = CategoryMapping[category];
       const resultMockApi: dataMock = await mockApi(categoryValue);
-      console.log(resultMockApi, "invoke Kafka service")
 
       set(createTicketInput, "status", StatusEnum.PENDING);
-      return await this.ticketRepository.save(createTicketInput);
+      const newTicket= await this.ticketRepository.save(createTicketInput);
+
+      this.ticketClientKafka.emit(
+        'ticket_created',
+        JSON.stringify({ id: get(createTicketInput, "id"), state: resultMockApi }),
+      );
+      return newTicket;
     } catch (error) {
       throw new BadRequestException('Failed to create a ticket.', error);
     }

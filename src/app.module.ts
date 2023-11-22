@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { join } from 'path';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { KafkaModule } from './kafka/kafka.module';
 import { TicketsModule } from './tickets/tickets.module';
 
 @Module({
@@ -24,7 +25,7 @@ import { TicketsModule } from './tickets/tickets.module';
     GraphQLModule.forRoot<ApolloDriverConfig>({
     driver: ApolloDriver,
     autoSchemaFile: join(process.cwd(), "src/schema.gql")
-  }), TicketsModule],
+  }), TicketsModule, KafkaModule],
   controllers: [AppController],
   providers: [AppService],
 })

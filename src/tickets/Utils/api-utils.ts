@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { dataMock } from 'src/tickets/infraestructure/ValidationEnum';
+import { dataMock } from '../infraestructure/interface';
 
 export const mockApi = async (id: number):Promise<dataMock> => {
   try {
